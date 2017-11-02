@@ -1,0 +1,33 @@
+
+
+
+
+<html>
+<head>
+	<style type="text/css">
+		body{
+			font-family:Arial, Helvetica, sans-serif;
+		}
+		h1{font-size:26px;}
+		p{margin:0 0 20px;font-size:14px;}
+	</style>
+</head>
+	<body>
+		
+		<p>
+			<img src="/ssc/images/hpe_logo.png;jsessionid=D1E07A361025BD1F1789A3DB65B3ED49">
+		</p>
+		
+			
+			
+			
+				
+				
+			
+			
+		
+		<h1>500 - Internal Server Error.</h1>
+		<hr>
+		<p>Please contact your Fortify System Administrator.</p>
+	</body>
+</html>

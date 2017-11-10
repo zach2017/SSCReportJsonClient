@@ -24,6 +24,7 @@ SOFTWARE.
 
 package org.fortify.demo.ssc;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.KeyManagementException;
@@ -61,7 +62,10 @@ public class DemoRestClient {
 	
 	private static boolean showDebugInfo = false; 
 	private static String myOutputFileName = null;
-
+	
+	// NOTE Limit wait for report compeleted to 60 minutes;
+    private static int MAX_WAIT_REPORT_CREATE = 60;
+    
 	public static void main(String[] args) {
 
 		String reportName = null;
@@ -80,7 +84,7 @@ public class DemoRestClient {
 				showDebugInfo = true;
 			
 		} else {
-			System.err.println("usage: SSCDemoRestReport <SSC URL> <SSC Unified Token> <Report Name");
+			System.err.println("usage: SSCDemoRestReport <SSC URL> <SSC Unified Token (BASE64)> <Report Name>");
 			return;
 		}
 		
@@ -97,6 +101,23 @@ public class DemoRestClient {
 		
 	    myReport.downloadToken = getReportToken(sscURL,sscReportToken);
 	    
+	   
+	    int start =  0;
+	    while ( MAX_WAIT_REPORT_CREATE > start  )
+	    {
+	    	start = start + 1;
+	    	if ( reportInProcess(sscURL, myReport.id, sscReportToken ) )
+	    	{
+	    		   start = MAX_WAIT_REPORT_CREATE + 1;
+	    	} else {
+	    	try {
+	 			Thread.sleep(60000);
+	 		} catch (InterruptedException e) {
+	 			// TODO Auto-generated catch block
+	 			e.printStackTrace();
+	 		};
+	    	}
+	    }
 	    debugOutput("DEBUG: Starting: downloadReport(" + sscURL + "," + sscReportToken + "," + myReport.downloadToken +  "," + myReport.id + ")" );
 	   
 	    downloadReport(sscURL, sscReportToken, myReport.downloadToken, myReport.id);
@@ -109,6 +130,28 @@ public class DemoRestClient {
 		
 	}
 
+	public static boolean reportInProcess(String pSscUrl, long pReportId, String pSscToken)
+	{
+		boolean result = false;
+		
+		String URL = pSscUrl + "/api/v1/reports/" + pReportId;
+		
+		debugOutput("DEBUG: [waitReport]: URL: (" + URL + ")");
+	
+	    String jsonresult = doGet(URL, pSscToken);
+		
+	    debugOutput("DEBUG: [waitReport]: Result (" + jsonresult + ")");
+	    if (jsonresult.contains("PROCESS_COMPLETE"))
+	    {
+	    	result = true;
+	    }
+	    else 
+	    {
+	    	result = false;
+	    }
+		
+		return result;
+	}
 	public static Long createReport(String sscURL, String pReportName, String pSscToken) {
 		
 		String URL = sscURL + "/api/v1/reports";
@@ -173,7 +216,7 @@ public class DemoRestClient {
 			
             result = (String) data.get("token");
         
-            System.out.println(result);
+            debugOutput("DEBUG: [getReportToken]: " + result);
 
 			
 		} catch (ParseException e) {
@@ -284,8 +327,19 @@ public class DemoRestClient {
 	public static String doGet(String pURL, String pSscToken)
 	{
 		SSLContext sslcontext = null;
-	
-        String result = null;
+		
+	    boolean hasJsonResult = false;
+        
+	    String result = null;
+        
+        if (pSscToken == null)
+        {
+             hasJsonResult = false;	
+        } else
+        {
+        	hasJsonResult = true;
+        }
+			
 		try {
 			sslcontext = SSLContexts.custom().build();
 			
@@ -303,6 +357,8 @@ public class DemoRestClient {
 			
 			HttpGet myGet = new HttpGet(pURL);
 			myGet.setHeader("Content-Type","application/json");
+		    if (hasJsonResult)
+			myGet.setHeader("Authorization", "FortifyToken " + pSscToken );
             
             myGet.getRequestLine();
           
@@ -328,9 +384,18 @@ public class DemoRestClient {
 	            CloseableHttpResponse   response = httpclient.execute(myGet);
 	        		   HttpEntity entity = response.getEntity();
 	        		   if (entity != null) {
+	        			   
+	        			   if ( hasJsonResult )
+	        			   {
+	        				   ByteArrayOutputStream byte1=new ByteArrayOutputStream();
+	        				   entity.writeTo(byte1);
+	        				   result =byte1.toString();
+	   			   
+	        			   } else {
 	        		       FileOutputStream fos = new FileOutputStream(myOutputFileName);
 	        		       entity.writeTo(fos);
 	        		       fos.close();
+	        			   }
 	        		   }
 	        		   debugOutput("DEBUG: [doGet]: Response=(" + response.toString() + ")"); 
 	        	response.close();
